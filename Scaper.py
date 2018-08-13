@@ -21,8 +21,8 @@ def random_proxy():
 	return random.randint(0, len(proxies) - 1)
 
 
-page_link ='https://www.some_website.com'
-page_link_http ='http://www.some_website.com'
+page_link ='https://www.some-website.com'
+page_link_http ='http://www.some-website.com'
 page_response = requests.get(page_link, timeout=5, headers=headers)
 page_content = BeautifulSoup(page_response.content, "html.parser")
 # print("href:", x['href'], sep="")
@@ -46,18 +46,22 @@ if (not c.fetchone()[0]):
 nextRow = True
 counter = 1
 newProxies = True
+repeatRequest = 0
+oldCounter = counter
 
-def loop_through(num):
+def loop_through():
 	global nextRow
 	global proxies
 	global counter
 	global newProxies
+	global repeatRequest
+	global oldCounter
 	if nextRow:
 		nextRow = False
 		i = 0
 		for row in c.execute('SELECT url FROM pages ORDER BY ROWID ASC'):
 			i = i + 1
-			if num == i:
+			if counter == i:
 				nextRow = True
 				newProxies = True
 				proxy_index = random_proxy()
@@ -68,6 +72,10 @@ def loop_through(num):
 
 				if (not url.startswith('http')):
 					url = page_link + '/' + url
+
+				print("Num link ", counter, " ********************************************************")
+				if counter != oldCounter:
+					repeatRequest = repeatRequest + 1
 
 				try:
 					page_response = requests.get(url, proxy['ip'] + ':' + proxy['port'], timeout=300, headers=headers)
@@ -80,7 +88,7 @@ def loop_through(num):
 						#print("Check_href:", x['href'], sep="")
 						if ((page_link in x['href']) or (page_link_http in x['href']) or x['href'][0]=='/' or (not x['href'].startswith('http'))) and (not c.fetchone()[0]):
 							c.execute("INSERT INTO pages VALUES (?)", (x['href'],))
-							#print("href:", x['href'], sep="")
+							#print("href: ", x['href'], sep="")
 
 
 					for x in img:
@@ -99,7 +107,12 @@ def loop_through(num):
 
 				except Exception as e:
 					del proxies[proxy_index]
-					counter = counter - 1
+					if repeatRequest <= 5:
+						counter = counter - 1
+					else:
+						repeatRequest = 0
+						oldCounter = counter
+
 					if len(proxies) < 3:
 						while newProxies:
 							try:
@@ -130,14 +143,15 @@ def loop_through(num):
 
 
 while nextRow:
-	loop_through(counter)
+	loop_through()
 	counter = counter + 1
+	oldCounter = oldCounter + 1
 	if(counter % 100 == 0):
 		conn.commit()
-		print("Num link ", counter, " ********************************************************")
+		
 
 
-
+conn.commit()
 conn.close()
 
 
